@@ -1,0 +1,105 @@
+---
+title: "Part 1"
+output: html_notebook
+---
+
+This is a Part 1 of Technical excercise. 
+
+We will be using following packages. Uncomment and run to install.
+
+```{r}
+#install.packages("WDI")
+#install.packages("dplyr")
+#install.packages("ggplot2")
+
+```
+
+```{r}
+library(WDI)
+library(dplyr) 
+library(ggplot2)
+
+```
+
+Let's explore data a little bit.
+```{r}
+WDI(indicator='SP.DYN.LE00.FE.IN')
+```
+
+Based on that we see that we can use agregated data for income groups and world.
+https://datahelpdesk.worldbank.org/knowledgebase/articles/906519-world-bank-country-and-lending-groups
+
+Here are iso2 codes we need:
+
+* XD - high income
+* XM - low income
+* XT - upper middle income
+* XN - lower middle income
+* 1W - World
+
+Importing indicators data with filter
+```{r}
+datFE = WDI(indicator='SP.DYN.LE00.FE.IN', country=c('XD','XM','XT','XN','1W'), start=1960, end=2017)
+datMA = WDI(indicator='SP.DYN.LE00.MA.IN', country=c('XD','XM','XT','XN','1W'),start=1960, end=2017)
+```
+
+
+Combining two dataframes into one
+```{r}
+colnames(datFE)[3]<-"value"
+colnames(datMA)[3]<-"value"
+
+datFE$indicator<-"SP.DYN.LE00.FE.IN"
+datMA$indicator<-"SP.DYN.LE00.MA.IN"
+
+new <- rbind(datFE, datMA)
+```
+
+Let's check if we have any missing data/values
+
+```{r}
+sapply(new, function(x) sum(is.na(x)))
+
+filter(new, is.na(value))
+```
+All the missing values are for years 2016 and 2017. Since both indicators have data going only till 2015 we will not extrapolate it and ignore for this excersice.
+
+Dropping missing values after 2015
+```{r}
+new=filter(new, year %in% 1960:2015)
+```
+
+Let's plot data
+```{r}
+
+new$country = factor(new$country, levels=c('Low income','Lower middle income','Upper middle income','High income','World'), labels=c('LI','LMI','UMI','HI','World'))
+
+new$indicator <- factor(new$indicator, levels=c("SP.DYN.LE00.FE.IN", "SP.DYN.LE00.MA.IN"), labels=c("Female", "Male"))
+
+
+ggplot(new, aes(year, value, color=indicator)) + geom_line() + 
+    xlab('Year') + ylab('LE') + facet_grid(. ~ country)+ scale_colour_manual(name="Indicator",values=c("red", "blue"))
+```
+
+```{r}
+
+world=filter(new, country=="World")
+
+
+# filter(world, year %in% list(1960,2015))
+# let's calculate life expectancy gap between genders in year 1960 and 2015
+# 1960: 54.58244-50.74082	
+# 3.84162
+
+# 2015: 74.12579-69.79979
+# 4.326
+
+ggplot(filter(world, country=="World"), aes(year, value, color=indicator)) + geom_line() + 
+    xlab('Year') + ylab('Life Expectancy at birth') + annotate("segment", x = 1960, xend = 1960, y = 50.7, yend =54.6, colour = "darkgrey")+ annotate("segment", x = 2015, xend = 2015, y = 69.8, yend =74.1, colour = "darkgrey")+ annotate("text", x = 1963,  y = 53, label="~3.8 years", colour = "black", size=2)+annotate("text", x = 2018,  y = 72, label="~4.3 years", colour = "black", size=2)+ scale_colour_manual(name="Indicator",values=c("red", "blue"))
+
+
+```
+
+# Summary
+
+Based on conducted analysis of Life expectancy at birth data both for males and females we can see that over period of time from 1960 to 2015 life expectancy rapidly increased by about 50%. Countries with lower income have lower life expectancy than countries with high income. Regardless of country income female life expectancy was always higher than male and the gap between two for the world slightly increased with time from ~3.8 years to ~4.3 years.
